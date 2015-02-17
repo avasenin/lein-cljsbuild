@@ -20,19 +20,15 @@
 
 (defn- run-local-project [project crossover-path builds requires form]
   (leval/eval-in-project (subproject/make-subproject project crossover-path builds)
-    ; Without an explicit exit, the in-project subprocess seems to just hang for
-    ; around 30 seconds before exiting.  I don't fully understand why...
     `(try
-       (do
-         ~form
-         (System/exit 0))
+       ~form
        (catch cljsbuild.test.TestsFailedException e#
          ; Do not print stack trace on test failure
-         (System/exit 1))
+         (lmain/abort 1))
        (catch Exception e#
          (do
            (.printStackTrace e#)
-           (System/exit 1))))
+           (lmain/abort 1))))
     requires))
 
 (defn- run-compiler [project {:keys [crossover-path crossovers builds]} build-ids watch?]
@@ -83,7 +79,8 @@
                             ~watch?))))]
                  (when ~watch?
                    (Thread/sleep 100)
-                   (recur new-dependency-mtimes#))))))))))
+                   (recur new-dependency-mtimes#))))))))
+    ))
 
 (defn- run-tests [project {:keys [test-commands crossover-path builds]} args]
   (when (> (count args) 1)
@@ -207,7 +204,8 @@
           (println
             "Subtask" (str \" subtask \") "not found."
             (lhelp/subtask-help-for *ns* #'cljsbuild))
-          (lmain/abort))))))
+          (lmain/abort)))
+      (shutdown-agents))))
 
 (defn compile-hook [task & args]
   (apply task args)
